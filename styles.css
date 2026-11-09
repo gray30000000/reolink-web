@@ -162,6 +162,8 @@ a { color: var(--accent); }
   padding: 20px calc(16px + var(--safe-r)) calc(20px + var(--safe-b)) calc(16px + var(--safe-l));
 }
 
+.controls .seg { width: 100%; max-width: 288px; }
+
 .ptz-row { display: flex; align-items: center; justify-content: center; gap: 24px; }
 
 .pad { display: grid; grid-template-columns: repeat(3, 64px); grid-template-rows: repeat(3, 64px); gap: 6px; }

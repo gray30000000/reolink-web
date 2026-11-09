@@ -17,6 +17,11 @@ const SPEED_OPTIONS = [
   { value: 64, label: 'Fast' },
 ];
 
+const QUALITY_OPTIONS = [
+  { value: 'smooth', label: 'Low quality' },
+  { value: 'detail', label: 'High quality' },
+];
+
 const root = document.getElementById('app');
 const leaveHandlers = [];
 
@@ -55,7 +60,7 @@ function segmented(label, options, current, onChange) {
   return h('div', { class: 'seg', role: 'group', 'aria-label': label }, buttons);
 }
 
-function createStage(cam, { interval, reduced, inView }) {
+function createStage(cam, { interval, reduced, inView, maxInFlight, showRate = false }) {
   const layer = h('div', { class: 'layer' });
   const time = h('span', { class: 'time' }, 'Connecting…');
   const errorCard = h('div', { class: 'feed-error', hidden: true },
@@ -76,11 +81,12 @@ function createStage(cam, { interval, reduced, inView }) {
     interval,
     reduced,
     inView,
-    onState({ status, hasFrame, at, ratio }) {
+    maxInFlight,
+    onState({ status, hasFrame, at, fps, ratio }) {
       stage.dataset.status = status;
       errorCard.hidden = !(status === 'error' && !hasFrame);
       if (ratio) stage.style.aspectRatio = String(ratio);
-      if (at) time.textContent = at.toLocaleTimeString();
+      if (at) time.textContent = showRate && fps != null ? `${fps.toFixed(1)} fps · ${at.toLocaleTimeString()}` : at.toLocaleTimeString();
       else if (status === 'error') time.textContent = 'Reconnecting…';
       else if (status === 'connecting') time.textContent = 'Connecting…';
     },
@@ -155,19 +161,29 @@ function viewCamera(id) {
   root.append(topBar(cam.name, { back: '#/', actions }));
 
   const { stage, layer, feed } = createStage(cam, {
-    interval: state.refreshMs / 2,
-    reduced: false,
+    interval: state.refreshMs / 8,
+    reduced: state.quality === 'smooth',
     inView: true,
+    maxInFlight: 3,
+    showRate: true,
   });
   attachZoom(stage, layer);
   onLeave(() => feed.destroy());
 
+  const quality = segmented('Picture quality', QUALITY_OPTIONS, state.quality, (value) => {
+    state.quality = value;
+    save();
+    feed.reduced = value === 'smooth';
+  });
+
   const viewer = h('main', { class: 'viewer' }, stage);
-  viewer.append(cam.ptz ? ptzControls(cam) : h('p', { class: 'hint controls' }, 'Pinch or double-tap the picture to zoom.'));
+  viewer.append(cam.ptz
+    ? ptzControls(cam, quality)
+    : h('section', { class: 'controls' }, quality, h('p', { class: 'hint' }, 'Pinch or double-tap the picture to zoom.')));
   root.append(viewer);
 }
 
-function ptzControls(cam) {
+function ptzControls(cam, quality) {
   let moving = false;
 
   const send = (op) => {
@@ -223,6 +239,7 @@ function ptzControls(cam) {
       state.ptzSpeed = value;
       save();
     }),
+    quality,
     h('p', { class: 'hint' }, 'Hold an arrow to move. Release to stop.'));
 }
 

@@ -4,7 +4,7 @@
 const DATA_KEY = 'reolink-web:data';
 const REMEMBER_KEY = 'reolink-web:remember';
 
-const DEFAULTS = { cameras: [], refreshMs: 1000, reduced: false, ptzSpeed: 32 };
+const DEFAULTS = { cameras: [], refreshMs: 1000, reduced: false, ptzSpeed: 32, quality: 'smooth' };
 
 function read(storage, key) {
   try { return storage.getItem(key); } catch { return null; }
