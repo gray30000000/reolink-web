@@ -71,8 +71,13 @@ export function loadSnapshot(cam, options) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.referrerPolicy = 'no-referrer';
+    img.decoding = 'sync';
     const timer = setTimeout(() => { img.src = ''; reject(new Error('timeout')); }, FRAME_TIMEOUT_MS);
-    img.onload = () => { clearTimeout(timer); resolve(img); };
+    // Wait for the decode as well as the download, so the frame can paint at once.
+    img.onload = () => {
+      clearTimeout(timer);
+      img.decode().catch(() => {}).then(() => resolve(img));
+    };
     img.onerror = () => { clearTimeout(timer); reject(new Error('load failed')); };
     img.src = snapshotUrl(cam, options);
   });
@@ -134,6 +139,15 @@ export class Feed {
     );
   }
 
+  // Stacks the new frame over the old one and removes the old one only after
+  // the new one has been painted, so the picture is never blank between frames.
+  present(img) {
+    this.layer.append(img);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      while (img.previousElementSibling) img.previousElementSibling.remove();
+    }));
+  }
+
   finish(token, img, started) {
     if (this.pending !== token) return;
     this.pending = null;
@@ -144,7 +158,7 @@ export class Feed {
       this.hasFrame = true;
       img.alt = '';
       img.draggable = false;
-      this.layer.replaceChildren(img);
+      this.present(img);
       this.onState({
         status: 'live',
         hasFrame: true,
